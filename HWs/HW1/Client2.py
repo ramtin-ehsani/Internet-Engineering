@@ -8,14 +8,14 @@ destinationAddressPort = ("127.0.0.1", 65438)
 bufferSize = 1024
 messages_received, messages_sent = [], []
 
-# Create a datagram socket
-
+# Create a datagram socket (UDP)
 UDPSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 UDPSocket.bind((localIP, sourcePort))
 
 print("Client 2 up and listening")
 
 
+# Resend messages when needed
 def resend():
     sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     for message in messages_sent:
@@ -24,7 +24,6 @@ def resend():
 
 
 # Listen for incoming datagrams
-
 def listen():
     sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     sock.bind(('127.0.0.1', listenPort))
@@ -42,12 +41,15 @@ def listen():
             resend_thread.start()
 
 
+# New Thread for listening
 listener = threading.Thread(target=listen, daemon=True)
 listener.start()
 
+# Send Messages to other client using created UDP socket
 while True:
-    # Sending a reply to client
     msg = input('> ')
     messages_sent.append(msg)
+
     bytesToSend = str.encode(msg + ' -' + str(len(messages_received)))
+
     UDPSocket.sendto(bytesToSend, destinationAddressPort)
