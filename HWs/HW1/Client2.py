@@ -6,7 +6,7 @@ listenPort, sourcePort = 20001, 20002
 destinationAddressPort = ("127.0.0.1", 65438)
 
 bufferSize = 1024
-messages_received, messages_sent = [], []
+messages_received, messages_sent, acks_received = [], [], []
 
 # Create a datagram socket (UDP)
 UDPSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -23,6 +23,15 @@ def resend():
         sock.sendto(resend_message, destinationAddressPort)
 
 
+# Resend messages in case of timeout
+def resend_timeout():
+    sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+    if len(acks_received) != len(messages_sent):
+        for message in messages_sent:
+            resend_message = str.encode(message + ' -resend')
+            sock.sendto(resend_message, destinationAddressPort)
+
+
 # Listen for incoming datagrams
 def listen():
     sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -30,12 +39,16 @@ def listen():
 
     while True:
         data = sock.recv(1024)
-        print('\rClient1: {}\n> '.format(data.decode()), end='')
 
+        if data.decode() == "ack":
+            acks_received.append(data.decode())
+            continue
+        print('\rClient1: {}\n> '.format(data.decode()), end='')
         data_split = data.decode().split('-')
         if data_split[1] == "resend":
             continue
         messages_received.append(data.decode())
+        UDPSocket.sendto(str.encode("ack"), destinationAddressPort)
         if int(data_split[1]) != len(messages_sent):
             resend_thread = threading.Thread(target=resend)
             resend_thread.start()
@@ -53,3 +66,5 @@ while True:
     bytesToSend = str.encode(msg + ' -' + str(len(messages_received)))
 
     UDPSocket.sendto(bytesToSend, destinationAddressPort)
+    timer = threading.Timer(10, resend_timeout)
+    timer.start()
